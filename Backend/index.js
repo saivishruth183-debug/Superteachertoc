@@ -5,6 +5,7 @@ import authRoutes from "./routes/auth.js";
 import courseRoutes from "./routes/courseRoutes.js";
 import gradeRoutes from "./routes/gradeRoutes.js";
 import connectToDatabase from "./db/db.js";
+import describeDbError from "./db/describeDbError.js";
 
 const app = express();
 // Allowed frontend origins: the production site, its Vercel preview URLs,
@@ -39,6 +40,23 @@ app.get("/", (req, res) => {
 
 app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+});
+
+// Checks the database connection and explains any failure (no secrets shown).
+app.get("/api/health/db", async (req, res) => {
+    try {
+        await connectToDatabase();
+        res.json({ status: "ok", database: "connected" });
+    } catch (error) {
+        console.error("Database health check failed:", error);
+        res.status(error.code === "MONGODB_URI_MISSING" ? 503 : 500).json({
+            status: "error",
+            message: error.code === "MONGODB_URI_MISSING"
+                ? "MONGODB_URI is not set in the backend's Vercel environment variables."
+                : describeDbError(error) || "Database connection failed.",
+            error: error.name,
+        });
+    }
 });
 
 app.use("/api", async (req, res, next) => {
@@ -84,8 +102,8 @@ app.use((error, req, res, next) => {
         return res.status(400).json({ message: error.message });
     }
     res.status(500).json({
-        message: "Backend request failed",
-        error: process.env.NODE_ENV === "production" ? undefined : error.message,
+        message: describeDbError(error) || "Backend request failed",
+        error: process.env.NODE_ENV === "production" ? error.name : error.message,
     });
 });
 
