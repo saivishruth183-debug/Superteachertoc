@@ -1,6 +1,7 @@
 import User from "../modules/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import describeDbError from "../db/describeDbError.js";
 
 const login = async (req, res) => {
     try {
@@ -30,7 +31,11 @@ const login = async (req, res) => {
         res.status(200).json({success: true, message: "Login successful", token, user: { id: user._id, email: user.email, role: user.role } });
     } catch (error) {
         console.error("Login failed:", error);
-        return res.status(500).json({ success: false, message: "Login failed" });
+        return res.status(500).json({
+            success: false,
+            message: describeDbError(error) || "Login failed",
+            error: error.name,
+        });
     }
 }
 
